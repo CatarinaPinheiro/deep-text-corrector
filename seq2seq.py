@@ -70,12 +70,14 @@ from tensorflow.python.ops import embedding_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import rnn
+import tensorflow
 from tensorflow.python.ops import rnn_cell
+from tensorflow.contrib.rnn.python.ops import core_rnn_cell
 from tensorflow.python.ops import variable_scope
 from tensorflow.python.util import nest
 
 # TODO(ebrevdo): Remove once _linear is fully deprecated.
-linear = rnn_cell._linear  # pylint: disable=protected-access
+linear = core_rnn_cell._linear  # pylint: disable=protected-access
 
 
 def _extract_argmax_and_embed(embedding, output_projection=None,
@@ -338,7 +340,7 @@ def embedding_rnn_seq2seq(encoder_inputs,
             dtype = scope.dtype
 
         # Encoder.
-        encoder_cell = rnn_cell.EmbeddingWrapper(
+        encoder_cell = tensorflow.contrib.rnn.EmbeddingWrapper(
             cell, embedding_classes=num_encoder_symbols,
             embedding_size=embedding_size)
         _, encoder_state = rnn.rnn(encoder_cell, encoder_inputs, dtype=dtype)
@@ -610,7 +612,7 @@ def attention_decoder(decoder_inputs,
                     ndims = q.get_shape().ndims
                     if ndims:
                         assert ndims == 2
-                query = array_ops.concat(1, query_list)
+                query = tensorflow.concat(query_list, 1)
             for a in xrange(num_heads):
                 with variable_scope.variable_scope("Attention_%d" % a):
                     y = linear(query, attention_vec_size, True)
@@ -814,16 +816,16 @@ def embedding_attention_seq2seq(encoder_inputs,
                     scope or "embedding_attention_seq2seq", dtype=dtype) as scope:
         dtype = scope.dtype
         # Encoder.
-        encoder_cell = rnn_cell.EmbeddingWrapper(
+        encoder_cell = tensorflow.contrib.rnn.EmbeddingWrapper(
             cell, embedding_classes=num_encoder_symbols,
             embedding_size=embedding_size)
-        encoder_outputs, encoder_state = rnn.rnn(
+        encoder_outputs, encoder_state = rnn.static_rnn(
             encoder_cell, encoder_inputs, dtype=dtype)
 
         # First calculate a concatenation of encoder outputs to put attention on.
         top_states = [array_ops.reshape(e, [-1, 1, cell.output_size])
                       for e in encoder_outputs]
-        attention_states = array_ops.concat(1, top_states)
+        attention_states = tensorflow.concat(top_states, 1)
 
         # Decoder.
         output_size = None
@@ -936,7 +938,7 @@ def one2many_rnn_seq2seq(encoder_inputs,
         dtype = scope.dtype
 
         # Encoder.
-        encoder_cell = rnn_cell.EmbeddingWrapper(
+        encoder_cell = tensorflow.contrib.rnn.EmbeddingWrapper(
             cell, embedding_classes=num_encoder_symbols,
             embedding_size=embedding_size)
         _, encoder_state = rnn.rnn(encoder_cell, encoder_inputs, dtype=dtype)
